@@ -93,7 +93,7 @@ Congrats! Now we are all set and can start with learning OpenCV!
       **BGR:** stores individual values of Red Green Blue and an alpha channel to show transparency </br>
       **HSV (Hue, saturation, value):** an alternate form of RGB colour space that is similar to human vision perception and helpful for image identification. </br>
 
-    <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/GRAY_img.jpg" width="200" height = "200"> <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/BGR_img.png" width="200" height = "200"> <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/HSV_img.jpg" width="200" height = "200"> </br>
+    <p align="center"> <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/GRAY_img.jpg" width="200" height = "200"> &nbsp; &nbsp; <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/BGR_img.png" width="200" height = "200"> &nbsp; &nbsp; <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/HSV_img.jpg" width="200" height = "200"> </p> </br>
     
     _Syntax_ - ```cv2.cvtColor( source , conversion_code)``` </br>
     _Parameters_ - </br>
@@ -134,7 +134,7 @@ Congrats! Now we are all set and can start with learning OpenCV!
     If you've used ASCII you might wonder how ASCII (8 bit) can be compared with 32 bit integer. </br>
     Since you use only the last 8 bits from the 32 bits, we do a bitwise AND operation (&). </br>
     Let's see an example with this in action_
-    ```bash
+    ```python
     if cv2.waitKey(0) & 0xFF == ord('q'):
         # Perform action here
     ```
@@ -368,7 +368,7 @@ if cv2.waitKey(0) & 0xFF==ord('s'):
 
 Since now you have a basic idea of OpenCV, let us see, how can we use it to detect ArUcos. By detecting, here our objective is to detect the position of the corners of the marker and ID of the marker(this is different from the data bits number, read on to find out). We will use the python library - ArUcos. In the header of your python script, add the following libraries:
 
-```
+```python
 import numpy as np
 import math
 import cv2
@@ -376,7 +376,7 @@ import cv2.aruco
 ```
 `aruco` library has predefined dictionaries of markers, which it uses to detect the given markers. We have to create an instance of these dictionaries before we proceed. It is done using:
 
-```
+```python
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5x5_250)
 ```
 This is an example of a dictionary of 250 ArUco markers of size 5x5. 
@@ -385,16 +385,16 @@ Let us say the image we have got from the camera is stored in the variable `img`
 Also remember that it is okay to have more than one ArUco markers in an image.
 
 Ok, so now lets convert this image into grayscale image and store it into another variable `gray`.
-```
+```python
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 ```
 Next we create an instance of a class, which includes all the options that can be customized during the marker detection process:
-```
+```python
 Parameters = aruco.DetectorParameters_create()
 ```
 And finally, we unpack parameters of the marker through:
 
-```
+```python
 corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters = Parameters)
 ```
 Note that we have used " _ " above because
@@ -418,14 +418,270 @@ We create a publisher-subscriber model to import and export images out of ROS in
 <img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/cvbridge3.png" width="300" height="330">
 
 ### Let us start with a simple example.
+Suppose, we are getting Image data on ```/camera/rgb/image_raw``` topic. 
+Here is a node that listens to a ROS image message topic, converts the images into an cv::Mat, displays the image using OpenCV. 
+
+```python
+#!/usr/bin/env python
+  
+import rospy
+from sensor_msgs.msg import Image
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
 
 
-We create a directory named ```cv_bridge``` and create a python file named ```cv_bridge_example.py```
-```bash
-mkdir -p ~/catkin_ws/src/cv_bridge/scripts
-gedit ~/catkin_ws/src/cv_bridge/scripts/cv_bridge_example.py
+def callback(img_msg):
+    # Initialize the CvBridge class
+    bridge = CvBridge()
+    # Print some info of image to the Terminal and to a ROS Log file located in ~/.ros/log/loghash/*.log
+    rospy.loginfo(img_msg.header)
+
+    # Try to convert the ROS Image message to a CV2 Image
+    try:
+        cv_image = bridge.imgmsg_to_cv2(img_msg, "passthrough")
+    except CvBridgeError as e:
+        rospy.logerr("CvBridge Error: {0}".format(e))
+
+    # Convert the image to Grayscale
+    gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+    # Show the converted image
+    cv2.namedWindow("Image Window", 1)
+    cv2.imshow("Image Window", gray)
+    cv2.waitKey(3)
+
+
+def laser():
+    rospy.Subscriber('/camera/rgb/image_raw', Image, callback)
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    rospy.init_node('cvbridge_example', anonymous=True)
+    try:
+        laser()
+
+    except rospy.ROSInterruptException:
+        pass
 ```
 
+
+## Proceeding to detect ArUco..
+
+Open the Terminal and run following commands-
+```bash
+cd ~/catkin_ws/src
+git clone https://github.com/Tejas2910/aruco_detection/tree/python3_noetic
+cd ~/catkin_ws
+catkin_make
+```
+Now you have a package aruco_detection, let's run it.
+```bash
+roslaunch aruco_detection maze_aruco.launch
+```
+Let's spwan the Turtlebot3 by running follwing command in another tab
+```bash
+roslaunch aruco_detection spawn_turtlebot3.launch
+```
+You can see ArUco marker in front of TurtleBot3(waffle_pi model).
+Why we used waffle_pi ? Guess... Remember Investigation 1 of Episode 1. 
+
+Yes, you guessed correctly. Let's check by executing ``` rostopic list ``` in another tab.
+```bash
+/clock
+/cmd_vel
+/gazebo/link_states
+/gazebo/model_states
+/gazebo/parameter_descriptions
+/gazebo/parameter_updates
+/gazebo/set_link_state
+/gazebo/set_model_state
+/imu
+/joint_states
+/odom
+/rosout
+/rosout_agg
+/scan
+/tf
+/turtlebot3_waffle_pi/camera/camera_info
+/turtlebot3_waffle_pi/camera/image_raw
+/turtlebot3_waffle_pi/camera/image_raw/compressed
+/turtlebot3_waffle_pi/camera/image_raw/compressed/parameter_descriptions
+/turtlebot3_waffle_pi/camera/image_raw/compressed/parameter_updates
+/turtlebot3_waffle_pi/camera/image_raw/compressedDepth
+/turtlebot3_waffle_pi/camera/image_raw/compressedDepth/parameter_descriptions
+/turtlebot3_waffle_pi/camera/image_raw/compressedDepth/parameter_updates
+/turtlebot3_waffle_pi/camera/image_raw/theora
+/turtlebot3_waffle_pi/camera/image_raw/theora/parameter_descriptions
+/turtlebot3_waffle_pi/camera/image_raw/theora/parameter_updates
+/turtlebot3_waffle_pi/camera/parameter_descriptions
+/turtlebot3_waffle_pi/camera/parameter_updates
+```
+Camera Sensor is publishing data of ```sensor_msgs/Image``` msg type to ```/turtlebot3_waffle_pi/camera/image_raw``` topic. Let's visualize this data throgh **Rviz**.
+
+Run ```rviz``` in Terminal. Click on Add button, Under tab **By topic** add ```/turtlebot3_waffle_pi/camera/image_raw``` topic. You can see data published on this topic.  
+
+<img src="Images/Rviz_CameraTopic.jpg" width=250 height=400>
+
+Now, we will subscribe ```/turtlebot3_waffle_pi/camera/image_raw``` topic to convert ROS Image data to OpenCV Image data using **cv_bridge**.
+
+Execute the following command in another tab.
+```bash
+rosrun aruco_detection detect_marker.py
+```
+On executing You should be able to see following screen.
+
+<img src="Images/cv_bridge_1.jpg" width=600 height=300>
+
+Have a look at the detect_marker.py file
+
+```python
+#!/usr/bin/env python3
+
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
+import cv2
+import numpy as np
+import rospy
+import cv2.aruco as aruco
+import sys
+import math
+import time
+
+def detect_ArUco(img):
+	## function to detect ArUco markers in the image using ArUco library
+	## argument: img is the test image
+	## return:   dictionary named Detected_ArUco_markers of the format {ArUco_id_no : corners},
+	## 	     where ArUco_id_no indicates ArUco id and corners indicates the four corner position 
+	##	     of the aruco(numpy array)
+	##	     for instance, if there is an ArUco(0) in some orientation then, ArUco_list can be like
+	## 				{0: array([[315, 163], [319, 263], [219, 267], [215,167]], dtype=float32)}
+						
+    Detected_ArUco_markers = {}
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
+    parameters = aruco.DetectorParameters_create()
+    corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters = parameters) 
+    i = 0
+    
+    try:
+        for id in ids:
+            for id_Number in id:
+                Detected_ArUco_markers[id_Number] = corners[i][0]    
+
+    except TypeError:
+        print("No aruco in front of me")
+
+    i += 1
+    return Detected_ArUco_markers
+
+
+def mark_ArUco(img,Detected_ArUco_markers):
+	## function to mark ArUco in the test image as per the instructions given in problem statement
+	## arguments: img is the test image 
+	##			  Detected_ArUco_markers is the dictionary returned by function detect_ArUco(img)
+	## return: image helping sherlock to solve maze 
+
+    ids = Detected_ArUco_markers.keys()
+    print(Detected_ArUco_markers)
+    centre_aruco = {}
+    top_centre = {}
+
+    try:
+        for id in ids:
+            corners = Detected_ArUco_markers[id]
+            for i in range(0, 4):
+                cv2.circle(img,(int(corners[i][0]), int(corners[i][1])), 5, (0,0,255), -1)
+            centre_aruco[id] = (corners[0]+corners[1]+corners[2]+corners[3])/4
+            top_centre[id] = (corners[0]+corners[1])/2
+            cv2.line(img, (int(centre_aruco[id][0]), int(centre_aruco[id][1])),
+	    		(int(top_centre[id][0]), int(top_centre[id][1])), (255, 0, 0), 5)
+
+    except TypeError:
+        print("No aruco in front of me")
+
+    return img
+
+def callback(img):
+    bridge = CvBridge()
+    try:
+        cv_image = bridge.imgmsg_to_cv2(img, "bgr8")
+    except CvBridgeError as e:
+        rospy.logerr("CvBridge Error: {0}".format(e))
+    Detected_ArUco_markers = detect_ArUco(cv_image)	  
+    img = mark_ArUco(cv_image,Detected_ArUco_markers)    
+    cv2.namedWindow("Image Window", 1)
+    cv2.imshow("Image Window", img)
+    k = cv2.waitKey(1)
+    
+
+def laser():
+    rospy.Subscriber('/turtlebot3_waffle_pi/camera/image_raw', Image, callback)
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    rospy.init_node('detect_marker')
+    try:
+        laser()
+
+    except rospy.ROSInterruptException:
+        pass
+	
+```
+Run ```roslaunch aruco_detection turtlebot3_teleop_key.launch``` in another window, and try to move the bot.
+
+Now, we have seen ArUco detection,
+
+# Let's Solve mAzE
+
+At this stage, you have enough knowledge to escape from the maze created by Moriarty.
+
+Open **maze_aruco.launch** file in launch folder and replace empty.world with maze_aruco.world. Required file is
+
+```xml
+<launch>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find aruco_detection)/worlds/maze_aruco.world"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+</launch>
+```
+Execute following command 
+```bash
+roslaunch aruco_detection maze_aruco.launch
+roslaunch aruco_detection spawn_turtlebot3.launch
+```
+Upon execution, the following screen should be visible.
+
+<img src="Images/maze.jpg" width=600 height=300>
+
+Cool !
+
+How will you come out of this maze, which is surrounded by walls from all the sides ?
+
+Well, it's Moriarty's maze.
+
+There is a trick- Bot can go through some of the walls present in the maze. But, how bot will find those walls ? 
+
+ArUco says hi!! 
+
+AruCo will guide you along the way to solve the maze. 
+
+<img src="Images/aruco_guide.jpg" width=600 height=300>
+
+**Blue line** in ArUco marker in "Image Window" is indicating that magic wall 
+
+Execute ```rosrun aruco_detection detect_marker.py```. Open new terminal and execute ```roslaunch aruco_detection turtlebot3_teleop_key.launch``` to control bot.
+
+Now, go and Solve the maze. :)
+
 ### That's the end of Week 2! Cheers!
-<img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/sherlock_toast.jpg" height="300" width="400">
+
+<img src="https://github.com/Pranav-Malpure/fROSty-Winter-Week-2/blob/main/Images/sherlock_toast.jpg" height="300" width="450">
 
